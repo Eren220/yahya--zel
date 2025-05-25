@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<title>Gelişmiş Rozetli Sayı Tahmin Oyunu</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background:#f0f4f8; }
+  h1 { text-align: center; }
+  #rozetlerListesi li {
+    margin: 8px 0;
+    padding: 6px 10px;
+    background: #d1e7dd;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #rozetlerListesi li span.icon {
+    font-size: 20px;
+  }
+  button { margin-left: 10px; padding: 6px 12px; cursor: pointer; }
+  input[type=number] { width: 100px; padding: 6px; }
+  select { padding: 6px; }
+  #skor { font-weight: bold; margin-top: 15px; }
+  #sonuc { margin: 15px 0; font-size: 1.2em; min-height: 24px; }
+  #footer { text-align:center; margin-top: 30px; color: #777; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>Gelişmiş Rozetli Sayı Tahmin Oyunu</h1>
+
+<label for="zorluk">Zorluk Seviyesi: </label>
+<select id="zorluk" onchange="yeniOyun()">
+  <option value="kolay">Kolay (1-50, 15 hak)</option>
+  <option value="orta" selected>Orta (1-100, 10 hak)</option>
+  <option value="zor">Zor (1-150, 7 hak)</option>
+  <option value="imkansiz">İmkansız (1-200, 5 hak)</option>
+</select>
+
+<div style="margin: 15px 0;">
+  <input type="number" id="tahmin" placeholder="Tahminini yaz" />
+  <button onclick="tahminEt()">Tahmin Et</button>
+  <button onclick="pasGec()">Pas Geç</button>
+  <button onclick="yeniOyun()">Yeniden Başla</button>
+</div>
+
+<p id="sonuc"></p>
+<p>Kalan Hak: <span id="kalanHak"></span></p>
+<p>Pas Hakkı: <span id="pasHakki"></span></p>
+<p id="skor">Skor: 0</p>
+
+<h3>Rozetlerin:</h3>
+<ul id="rozetlerListesi"></ul>
+
+<audio id="sesDogru" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="sesYanlis" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="sesPas" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_drum_hit.ogg"></audio>
+
+<script>
+  // Oyun değişkenleri
+  let aralik = 100;
+  let tutulanSayi = 0;
+  let kalanHak = 10;
+  let pasHakki = 2;
+  let skor = 0;
+
+  // Oyuncu verisi
+  const oyuncuVerisi = {
+    dogruTahminSayisi: 0,
+    pasSayisi: 0,
+    rozetler: []
+  };
+
+  // Rozet tanımları (ikonlu)
+  const rozetler = {
+    ilkDogru: { isim: "İlk Doğru Tahmin", aciklama: "İlk doğru tahminini yaptın!", icon: "🏆" },
+    besDogru: { isim: "5 Doğru Tahmin", aciklama: "5 kere doğru tahmin yaptın!", icon: "🎯" },
+    ucPas: { isim: "3 Pas Geçme", aciklama: "3 kere pas geçtin!", icon: "🧘‍♂️" },
+    onDogru: { isim: "10 Doğru Tahmin", aciklama: "10 kere doğru tahmin yaptın!", icon: "🔥" },
+    maxSkor: { isim: "Yüksek Skor", aciklama: "En yüksek skoru elde ettin!", icon: "💎" }
+  };
+
+  // Ses efektleri
+  const sesDogru = document.getElementById('sesDogru');
+  const sesYanlis = document.getElementById('sesYanlis');
+  const sesPas = document.getElementById('sesPas');
+
+  // Skor kayıt (localStorage)
+  const skorKey = 'sayiTahminSkor';
+
+  function skorKaydet() {
+    let maxSkor = localStorage.getItem(skorKey) || 0;
+    if (skor > maxSkor) {
+      localStorage.setItem(skorKey, skor);
+      oyuncuVerisi.rozetler.push('maxSkor');
+      alert(`💎 Yeni yüksek skor! Skorun: ${skor}. Yüksek Skor rozeti kazandın!`);
+      rozetleriGoster();
+    }
+  }
+
+  function rozetKontrol() {
+    if (oyuncuVerisi.dogruTahminSayisi === 1 && !oyuncuVerisi.rozetler.includes('ilkDogru')) {
+      oyuncuVerisi.rozetler.push('ilkDogru');
+      alert(`🏆 Tebrikler! ${rozetler.ilkDogru.isim} rozetini kazandın!`);
+    }
+    if (oyuncuVerisi.dogruTahminSayisi === 5 && !oyuncuVerisi.rozetler.includes('besDogru')) {
+      oyuncuVerisi.rozetler.push('besDogru');
+      alert(`🎯 Harikasın! ${rozetler.besDogru.isim} rozetini kazandın!`);
+    }
+    if (oyuncuVerisi.dogruTahminSayisi === 10 && !oyuncuVerisi.rozetler.includes('onDogru')) {
+      oyuncuVerisi.rozetler.push('onDogru');
+      alert(`🔥 Usta Tahminci! ${rozetler.onDogru.isim} rozetini kazandın!`);
+    }
+    if (oyuncuVerisi.pasSayisi === 3 && !oyuncuVerisi.rozetler.includes('ucPas')) {
+      oyuncuVerisi.rozetler.push('ucPas');
+      alert(`🧘‍♂️ Sakin oyuncu! ${rozetler.ucPas.isim} rozetini kazandın!`);
+    }
+    rozetleriGoster();
+  }
+
+  function rozetleriGoster() {
+    const liste = document.getElementById('rozetlerListesi');
+    liste.innerHTML = '';
+    oyuncuVerisi.rozetler.forEach(r => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="icon">${rozetler[r].icon}</span> <strong>${rozetler[r].isim}</strong> - ${rozetler[r].aciklama}`;
+      liste.appendChild(li);
+    });
+  }
+
+  function yeniOyun() {
+    const zorluk = document.getElementById('zorluk').value;
+    switch(zorluk) {
+      case 'kolay':
+        aralik = 50; kalanHak = 15; break;
+      case 'orta':
+        aralik = 100; kalanHak = 10; break;
+      case 'zor':
+        aralik = 150; kalanHak = 7; break;
+      case 'imkansiz':
+        aralik = 200; kalanHak = 5; break;
+      default:
+        aralik = 100; kalanHak = 10;
+    }
+    pasHakki = 2;
+    skor = 0;
+    oyuncuVerisi.dogruTahminSayisi = 0;
+    oyuncuVerisi.pasSayisi = 0;
+    oyuncuVerisi.rozetler = [];
+
+    tutulanSayi = Math.floor(Math.random() * aralik) + 1;
+    document.getElementById('sonuc').textContent = '';
+    document.getElementById('kalanHak').textContent = kalanHak;
+    document.getElementById('pasHakki').textContent = pasHakki;
+    document.getElementById('skor').textContent = 'Skor: 0';
+    document.getElementById('tahmin').value = '';
+    rozetleriGoster();
+  }
+
+  function tahminEt() {
+    const tahminInput = document.getElementById('tahmin');
+    let tahmin = Number(tahminInput.value);
+    if (!tahmin || tahmin < 1 || tahmin > aralik) {
+      alert(`Lütfen 1 ile ${aralik} arasında bir sayı gir!`);
+      return;
+    }
+    if (kalanHak <= 0) {
+      alert("Hakların bitti! Lütfen oyunu yeniden başlat.");
+      return;
+    }
+    if (tahmin === tutulanSayi) {
+      sesDogru.play();
+      oyuncuVerisi.dogruTahminSayisi++;
+      skor += 10 + kalanHak * 2; // Bonus hak sayısına göre skor
+      document.getElementById('sonuc').textContent = `🎉 Tebrikler! Doğru bildin: ${tutulanSayi}`;
+      rozetKontrol();
+      skorKaydet();
+      kalanHak = 0;
+    } else {
+      sesYanlis.play();
+      kalanHak--;
+      skor = Math.max(0, skor - 2);
+      if (tahmin < tutulanSayi) {
+        document.getElementById('sonuc').textContent = "Daha büyük sayı dene.";
+      } else {
+        document.getElementById('sonuc').textContent = "Daha küçük sayı dene.";
+      }
+      if (kalanHak === 0) {
+        document.getElementById('sonuc').textContent = `😞 Hakkın bitti! Doğru sayı: ${tutulanSayi}`;
+        skorKaydet();
+      }
+    }
+    document.getElementById('kalanHak').textContent = kalanHak;
+    document.getElementById('skor').textContent = 'Skor: ' + skor;
+    tahminInput.value = '';
+  }
+
+  function pasGec() {
+    if (pasHakki <= 0) {
+      alert("Pas hakkın kalmadı!");
+      return;
+    }
+    if (kalanHak <= 0) {
+      alert("Hakların bitti! Oyunu yenile.");
+      return;
+    }
+    pasHakki--;
+    oyuncuVerisi.pasSayisi++;
+    kalanHak--;
+    sesPas.play();
+    document.getElementById('pasHakki').textContent = pasHakki;
+    document.getElementById('kalanHak').textContent = kalanHak;
+    document.getElementById('sonuc').textContent = "⏭️ Pas geçtin, hakın azaldı.";
+    skor = Math.max(0, skor - 1);
+    document.getElementById('skor').textContent = 'Skor: ' + skor;
+    rozetKontrol();
+    if (kalanHak === 0) {
+      document.getElementById('sonuc').textContent = `😞 Hakkın bitti! Doğru sayı: ${tutulanSayi}`;
+      skorKaydet();
+    }
+  }
+
+  // Başlangıçta oyun kur
+  yeniOyun();
+</script>
+
+<div id="footer">© 2025 Eren'in Sayı Tahmin Oyunu</div>
+
+</body>
+</html>
